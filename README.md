@@ -36,31 +36,35 @@ Das Imperium bündelt elf spezialisierte Anwendungsbereiche in einer einzigen, k
 ## 🛡️ 3. Architektur & Sicherheits-Härtung
 
 Das System basiert auf dem unumstößlichen Prinzip der **Schnittstellen-Isolation**:
-┌─────────────────────────────────────────┐
-│        FRONTEND (Cyber-Dark UI)         │
-│    Vanilla HTML5 + CSS + Hash-Router    │
-└────────────────────┬────────────────────┘
-                     │ (/api/* Secure Tunnel)
-                     ▼
-┌─────────────────────────────────────────┐
-│         BACKEND (FastAPI Engine)        │
-│     Universal-Translator & AI-Router    │
-└─────┬──────────┬──────────┬──────────┬──┘
-      │          │          │          │
-      ▼          ▼          ▼          ▼
-   Postgres    Chroma     Ollama    Jellyfin
-   (SQL-DB)   (Vectors)  (AI-LLM)   (Stream)
 
+```text
+┌─────────────────────────────────────┐
+│      FRONTEND (Cyber-Dark UI)       │
+│   HTML5 + CSS + Vanilla JS Router   │
+└──────────────────┬──────────────────┘
+                   │ (/api/* Tunnel)
+                   ▼
+┌─────────────────────────────────────┐
+│      BACKEND (FastAPI Engine)       │
+│  Universal Translator & AI-Router   │
+└─────┬──────────┬──────────┬─────────┘
+      │          │          │        │
+      ▼          ▼          ▼        ▼
+   Postgres   Chroma     Ollama   Jellyfin
+   (SQL-DB)  (Vectors)  (AI-LLM)  (Stream)
 ### 🔒 Die Goldenen Sicherheits-Regeln:
 1.  **Das Iframe-Verbot**: Das Frontend kommuniziert ausschließlich mit dem FastAPI-Backend über `/api`. Direkte Netzwerkzugriffe auf Jellyfin, ChromaDB, Ollama oder das Dateisystem sind strikt untersagt. Die einzige Ausnahme bildet der über Caddy-Sicherheits-Header geschützte code-server.
 2.  **Dateisystem-Schutz**: Jede Datei-Interaktion wird im Backend über einen normalisierenden Pfad-Traversal-Guard geschützt, um Angriffe über relative Pfadangaben (`../`) vollständig zu blockieren.
 3.  **Kryptografischer Port-Knocking-Schutz**: Der Server blockiert jeglichen unautorisierten Netzwerkverkehr und antwortet auf keinen Ping. Erst eine exakte Klopfsequenz an den TCP-Ports **4000 -> 5000 -> 6000** öffnet den SSH-Port für exakt 3 Sekunden.
 4.  **Hardware-Schlüssel-Pflicht**: Passwörter sind deaktiviert. Die Authentifizierung erfolgt ausschließlich über kryptografische SSH-Schlüssel, die auf einem physischen USB-Stick (Sicherheitsschlüssel) aufbewahrt werden.
 
+```
 ---
 
 ## 📂 4. Repository-Struktur
 .
+```text
+
 ├── Caddyfile              # Reverse Proxy & SSL
 ├── docker-compose.yml     # Container-Orchestrierung
 ├── requirements.txt       # Python-Abhängigkeiten
@@ -88,6 +92,7 @@ Das System basiert auf dem unumstößlichen Prinzip der **Schnittstellen-Isolati
         ├── index.html     # HTML5 SPA Shell
         ├── styles/        # CSS (Tokens & Glassmorphism)
         └── js/            # ES-Module & Views
+```
 ---
 
 ## 📅 5. Deployment & Produktions-Roadmap
