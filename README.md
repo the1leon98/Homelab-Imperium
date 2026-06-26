@@ -93,23 +93,10 @@ Das System basiert auf dem unumstößlichen Prinzip der **Schnittstellen-Isolati
         ├── styles/        # CSS (Tokens & Glassmorphism)
         └── js/            # ES-Module & Views
 ```
----
-
-## 📅 5. Deployment & Produktions-Roadmap
-
-Die Software befindet sich aktuell in einem vollständig implementierten, produktionsbereiten **Dry-Run-Zustand** auf einem portablen Speichermedium.
-
-*   [x] **Phase 0 & Phase 1**: Architektur-Initialisierung, API-Design, Design-Tokens-Extraktion und vollständige Scaffolding-Erstellung abgeschlossen.
-*   [x] **Lokaler Testlauf**: Erfolgreiche Validierung des asynchronen FastAPI-Services und der interaktiven SVGs (3D-Modelle für Auto und Körper-Hologramm).
-*   [ ] **Inbetriebnahme (August 2026)**: Sobald das physische LAN-Netzwerk eingerichtet ist, erfolgt der direkte Transfer auf den physischen, auf **16 GB RAM** aufgerüsteten HP Laptop-Server. Der Start des gesamten Stacks erfolgt über einen einzigen Befehl:
-
-```bash
-docker compose up -d --build
-````
 
 ---
 
-## ⚖️ 6. Lizenz & Urheberrecht
+## ⚖️ 5. Lizenz & Urheberrecht
 
 Dieses Projekt ist Open-Source und unter den Bedingungen der **MIT-Lizenz** lizenziert. 
 
