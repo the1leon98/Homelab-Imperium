@@ -1,0 +1,415 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# docker-compose.yml — Homelab-Imperium Infrastruktur-Orchestrierung
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Orchestriert den gesamten Container-Stack für das Homelab-Imperium.
+# Alle persistenten Daten liegen auf der externen HDD unter /mnt/data.
+#
+# Services:
+# 1. caddy          — Reverse Proxy (TLS, Port 80/443)
+# 2. fastapi_app    — Backend API (FastAPI, Port 8000 intern)
+# 3. postgres_db    — Relationale DB (PostgreSQL 15, Port 5432 intern)
+# 4. chromadb       — Vektordatenbank (ChromaDB, Port 8000 intern)
+# 5. jellyfin       — Medienserver (Jellyfin, Port 8096 intern)
+# 6. code_server    — Web-IDE (code-server, Port 8080 intern)
+#
+# Starten:
+#   docker-compose up -d
+#
+# Stoppen:
+#   docker-compose down
+#
+# Logs:
+#   docker-compose logs -f [service]
+
+version: '3.8'
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Services
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # 1. Caddy — Reverse Proxy & TLS-Terminierung
+  # ──────────────────────────────────────────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: imperium_proxy
+    restart: unless-stopped
+
+    # NUR Caddy exponiert Ports nach außen!
+    ports:
+      - "80:80"    # HTTP  (optional, für Let's Encrypt)
+      - "443:443"  # HTTPS (TLS 1.3)
+      # Tailscale-WireGuard-Port nur wenn Tailscale direkt auf Host läuft:
+      # - "41641:41641/udp"
+
+    volumes:
+      # Caddy-Konfiguration (diese Datei)
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # TLS-Zertifikate & persistente Daten (auf HDD)
+      - /mnt/data/caddy_data:/data
+      - /mnt/data/caddy_config:/config
+      # Statische Frontend-Dateien (Read-Only)
+      - ./frontend/static:/usr/share/caddy/frontend:ro
+      # Logs (auf HDD für Persistenz)
+      - /mnt/data/caddy_logs:/var/log/caddy
+
+    networks:
+      - imperium_net
+
+    # Security (Caddy läuft bereits als non-root im Container)
+    security_opt:
+      - no-new-privileges:true
+
+    # Healthcheck: Caddy-Admin-API
+    healthcheck:
+      test: ["CMD", "caddy", "version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    # Ressourcen-Limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # 2. FastAPI — Backend API (Python 3.14)
+  # ──────────────────────────────────────────────────────────────────────────
+  fastapi_app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: imperium_backend:latest
+    container_name: imperium_backend
+    restart: unless-stopped
+
+    # Keine exponierten Ports — nur intern über Caddy erreichbar!
+    # ports: (entfernt — keine direkte Exposition!)
+
+    env_file:
+      - .env  # Umgebungsvariablen (NIE in Git committen!)
+
+    environment:
+      # Explizite Overrides für Docker-Compose-Kontext
+      - API_ENV=production
+      - DATABASE_URL=postgresql://homelab_user:homelab_secure_pass@postgres_db:5432/homelab_imperium
+      - CHROMADB_ENDPOINT=http://chromadb:8000
+      - OLLAMA_LOCAL_ENDPOINT=http://host.docker.internal:11434
+      - JELLYFIN_BASE_URL=http://jellyfin:8096
+      - CODE_SERVER_ENDPOINT=http://code_server:8080
+      - DATA_ROOT=/mnt/data
+
+    volumes:
+      # Persistente HDD-Daten (Read-Write für FileBunker, Auto-Exports)
+      - /mnt/data:/mnt/data
+      # Nur-lesender Zugriff auf Musikdateien (via Jellyfin-Volume)
+      - /mnt/data/media:/mnt/data/media:ro
+
+    networks:
+      - imperium_net
+
+    # Abhängigkeiten: Warten auf DB + ChromaDB vor Start
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+
+    # Security-Hardening
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev,size=128M
+
+    # Healthcheck: FastAPI /api/health Endpunkt
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+    # Ressourcen-Limits
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # 3. PostgreSQL — Relationale Datenbank
+  # ──────────────────────────────────────────────────────────────────────────
+  postgres_db:
+    image: postgres:15-alpine
+    container_name: imperium_postgres
+    restart: unless-stopped
+
+    # Keine exponierten Ports!
+    # ports: (entfernt)
+
+    environment:
+      POSTGRES_DB: homelab_imperium
+      POSTGRES_USER: homelab_user
+      POSTGRES_PASSWORD: homelab_secure_pass  # ⚠ In Produktion via Docker Secrets!
+      # Performance-Tuning für Homelab (16 GB RAM)
+      POSTGRES_SHARED_BUFFERS: 512MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 4GB
+      POSTGRES_MAINTENANCE_WORK_MEM: 128MB
+      POSTGRES_WAL_BUFFERS: 16MB
+      POSTGRES_MAX_CONNECTIONS: 50
+
+    volumes:
+      # Persistente Datenbank-Dateien auf HDD
+      - /mnt/data/db/postgres:/var/lib/postgresql/data
+      # Initialisierungs-Skripte (optional)
+      # - ./db/init:/docker-entrypoint-initdb.d:ro
+
+    networks:
+      - imperium_net
+
+    # Security
+    security_opt:
+      - no-new-privileges:true
+    # PostgreSQL-Alpine läuft bereits als postgres-User
+
+    # Healthcheck: pg_isready
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U homelab_user -d homelab_imperium"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    # Ressourcen-Limits
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # 4. ChromaDB — Vektordatenbank (RAG Embeddings)
+  # ──────────────────────────────────────────────────────────────────────────
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: imperium_chroma
+    restart: unless-stopped
+
+    # Keine exponierten Ports!
+
+    environment:
+      # Persistenz-Pfad innerhalb des Containers
+      CHROMA_SERVER_CORS_ALLOW_ORIGINS: '["*"]'  # Internes Netzwerk — CORS ok
+      CHROMA_SERVER_HOST: "0.0.0.0"
+      CHROMA_SERVER_HTTP_PORT: "8000"
+      # Anonymisiertes Telemetrie deaktivieren
+      ANONYMIZED_TELEMETRY: "False"
+
+    volumes:
+      # Persistente Vektordaten auf HDD
+      - /mnt/data/db/chroma:/chroma/chroma
+
+    networks:
+      - imperium_net
+
+    # Security
+    security_opt:
+      - no-new-privileges:true
+
+    # Healthcheck: ChromaDB-Heartbeat
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+    # Ressourcen-Limits
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # 5. Jellyfin — Medienserver (Filme, Serien, Musik)
+  # ──────────────────────────────────────────────────────────────────────────
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: imperium_jellyfin
+    restart: unless-stopped
+
+    # Keine exponierten Ports — Zugriff NUR über FastAPI-Proxy!
+
+    environment:
+      # Jellyfin-Konfiguration
+      JELLYFIN_PublishedServerUrl: "https://hp-server.tailscale-mesh.net"
+      # Datenverzeichnisse (innerhalb des Containers)
+      JELLYFIN_DATA_DIR: /config
+      JELLYFIN_CACHE_DIR: /cache
+      JELLYFIN_LOG_DIR: /var/log/jellyfin
+      JELLYFIN_WEB_DIR: /usr/share/jellyfin/web
+
+    volumes:
+      # Medienbibliothek (Read-Only für Sicherheit)
+      - /mnt/data/media:/data/media:ro
+      # Jellyfin-Konfiguration (persistent)
+      - /mnt/data/jellyfin/config:/config
+      - /mnt/data/jellyfin/cache:/cache
+      # Transcoding-Verzeichnis (flüchtig, RAM-Disk empfohlen)
+      - /mnt/data/jellyfin/transcodes:/transcodes
+
+    networks:
+      - imperium_net
+
+    # Security
+    security_opt:
+      - no-new-privileges:true
+
+    # Healthcheck
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8096/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+    # Ressourcen-Limits (Transcoding kann CPU-intensiv sein)
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # 6. code-server — Web-IDE (VS Code im Browser)
+  # ──────────────────────────────────────────────────────────────────────────
+  code_server:
+    image: lscr.io/linuxserver/code-server:latest
+    container_name: imperium_code_server
+    restart: unless-stopped
+
+    # Keine exponierten Ports — Zugriff NUR über Caddy /ide/* Proxy!
+
+    environment:
+      # Benutzer- und Gruppen-ID für Datei-Zugriff
+      PUID: "1000"
+      PGID: "1000"
+      TZ: "Europe/Berlin"
+      # Passwort (SHA256-Hash — NIE Klartext!)
+      PASSWORD: "changeme_use_sha256_hash"  # ⚠ In Produktion via .env!
+      # VS Code-spezifische Einstellungen
+      DEFAULT_WORKSPACE: /workspace
+      # Authentifizierung
+      SUDO_PASSWORD: "disabled"      # Kein sudo in der IDE
+      PROXY_DOMAIN: "hp-server.tailscale-mesh.net"
+
+    volumes:
+      # Projektverzeichnis (persistent auf HDD)
+      - /mnt/data/code_server_projects:/workspace
+      # VS Code-Konfiguration (Extensions, Settings)
+      - /mnt/data/code_server_config:/config
+      # Zugriff auf das gesamte Repository (Read-Only)
+      - .:/workspace/homelab-imperium:ro
+
+    networks:
+      - imperium_net
+
+    # Security-Hardening
+    security_opt:
+      - no-new-privileges:true
+    # Keine Capabilities (minimal)
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+
+    # Healthcheck
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+    # Ressourcen-Limits
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Netzwerke
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Isoliertes Backend-Bridge-Netzwerk:
+# - Alle Services kommunizieren intern über Container-Namen (DNS)
+# - KEIN Container hat direkten externen Netzwerkzugriff (außer Caddy)
+# - Inter-Container-Kommunikation ist explizit erlaubt
+# - Keine Port-Exposition außer Caddy (80/443)
+
+networks:
+  imperium_net:
+    name: imperium_net
+    driver: bridge
+    # Interne Kommunikation: Nur Container im gleichen Netzwerk
+    internal: false  # false = Caddy kann mit extern kommunizieren (Tailscale)
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+          gateway: 172.28.0.1
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Volumes (Named Volumes — Alternative zu Host-Bind-Mounts)
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Aktuell werden Host-Bind-Mounts (/mnt/data/...) verwendet, da die HDD
+# bereits gemountet ist. Named Volumes wären eine Alternative für
+# Portabilität:
+#
+# volumes:
+#   postgres_data:
+#     driver: local
+#     driver_opts:
+#       type: none
+#       device: /mnt/data/db/postgres
+#       o: bind
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Secrets (Zukunft: Docker Secrets statt .env-Datei)
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# secrets:
+#   postgres_password:
+#     file: ./secrets/postgres_password.txt
+#   jellyfin_api_key:
+#     file: ./secrets/jellyfin_api_key.txt

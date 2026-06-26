@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Homelab-Imperium — Dein persönliches HomeOS für Server-Management, Medien, Finanzen, Gesundheit, Ausbildung & KI">
+  <meta name="theme-color" content="#0c0c18">
+  <meta name="color-scheme" content="dark">
+
+  <title>Imperium OS — HomeOS Dashboard</title>
+
+  <!-- Design System: Cyber-Dark-Tokens + Glassmorphismus-Layout -->
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/main.css">
+
+  <!-- Font-Preloads für flimmerfreies Rendering -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════
+       APP-SHELL: CSS-Grid-Container für das gesamte Dashboard-Layout
+       grid-template-areas: "sidebar topbar" / "sidebar content"
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <div id="app-shell">
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         SIDEBAR — Semantisches <aside> mit Glassmorphismus
+         Enthält: Logo, Navigation, Footer mit Einklapp-Button
+         ═══════════════════════════════════════════════════════════════════ -->
+    <aside id="sidebar" role="navigation" aria-label="Hauptnavigation">
+
+      <!-- Logo-Bereich -->
+      <div class="logo-area">
+        <div class="logo-icon" aria-hidden="true">⬡</div>
+        <h2>IMPERIUM OS</h2>
+      </div>
+
+      <!-- Navigations-Links -->
+      <nav id="sidebar-nav">
+        <a href="#/dashboard" class="nav-item active" data-route="dashboard" title="Dashboard">
+          <span class="nav-icon" aria-hidden="true">◈</span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="#/media" class="nav-item" data-route="media" title="Medienbunker">
+          <span class="nav-icon" aria-hidden="true">▶</span>
+          <span class="nav-label">Medienbunker</span>
+        </a>
+        <a href="#/music" class="nav-item" data-route="music" title="Musikarchiv">
+          <span class="nav-icon" aria-hidden="true">♫</span>
+          <span class="nav-label">Musikarchiv</span>
+        </a>
+        <a href="#/files" class="nav-item" data-route="files" title="Dateibunker">
+          <span class="nav-icon" aria-hidden="true">📁</span>
+          <span class="nav-label">Dateibunker</span>
+        </a>
+        <a href="#/finance" class="nav-item" data-route="finance" title="Finanzen">
+          <span class="nav-icon" aria-hidden="true">◎</span>
+          <span class="nav-label">Finanzen</span>
+        </a>
+        <a href="#/health" class="nav-item" data-route="health" title="Bio-Tracking">
+          <span class="nav-icon" aria-hidden="true">♡</span>
+          <span class="nav-label">Bio-Tracking</span>
+        </a>
+        <a href="#/school" class="nav-item" data-route="school" title="Ausbildung">
+          <span class="nav-icon" aria-hidden="true">✎</span>
+          <span class="nav-label">Ausbildung</span>
+        </a>
+        <a href="#/auto" class="nav-item" data-route="auto" title="Automotive">
+          <span class="nav-icon" aria-hidden="true">⚙</span>
+          <span class="nav-label">Automotive</span>
+        </a>
+        <a href="#/code" class="nav-item" data-route="code" title="Code Workbench">
+          <span class="nav-icon" aria-hidden="true">⟨⟩</span>
+          <span class="nav-label">Code Workbench</span>
+        </a>
+        <a href="#/ai-studio" class="nav-item" data-route="ai-studio" title="AI Studio">
+          <span class="nav-icon" aria-hidden="true">✦</span>
+          <span class="nav-label">AI Studio</span>
+        </a>
+      </nav>
+
+      <!-- Sidebar-Footer: System-Info & Einklapp-Button -->
+      <div class="sidebar-footer">
+        <button class="sidebar-collapse-btn" id="sidebar-collapse-btn"
+                aria-label="Sidebar einklappen" title="Sidebar einklappen">
+          ◀
+        </button>
+        <span class="sidebar-footer-text" id="sidebar-version">v2.0.0 · Ghost Server</span>
+      </div>
+    </aside>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         CONTENT-PANE: Hauptbereich mit Top-Bar & dynamischem View-Port
+         ═══════════════════════════════════════════════════════════════════ -->
+    <main id="content-pane">
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           TOP-BAR — Glassmorphismus, enthält:
+           · Mobile-Menü-Button
+           · Breadcrumbs
+           · System-Status-Indikatoren
+           · Power-Mode-Umschalter
+           · Benachrichtigungs-Glocke
+           · Avatar
+           ═══════════════════════════════════════════════════════════════ -->
+      <header id="top-bar" role="banner">
+
+        <!-- Linke Seite: Mobile-Button + Breadcrumbs -->
+        <div class="top-bar-left">
+          <!-- Hamburger-Menü für Mobile (nur ≤768px sichtbar) -->
+          <button class="top-bar-icon-btn mobile-menu-btn" id="mobile-menu-btn"
+                  aria-label="Menü öffnen" title="Menü">
+            ☰
+          </button>
+
+          <!-- Breadcrumb-Navigation -->
+          <nav class="breadcrumb" aria-label="Breadcrumb">
+            <span class="breadcrumb-current" id="breadcrumb-label">Dashboard</span>
+          </nav>
+        </div>
+
+        <!-- Rechte Seite: Status & Aktionen -->
+        <div class="top-bar-right">
+
+          <!-- System-Status-Indikator -->
+          <div class="flex items-center gap-2" id="system-status-area" title="Server-Status">
+            <span class="status-dot healthy" id="status-dot-system"></span>
+            <span class="text-xs text-secondary" id="status-text-system">Online</span>
+          </div>
+
+          <!-- GPU-Worker-Status -->
+          <div class="flex items-center gap-2" id="gpu-status-area" title="GPU-Worker (Tailscale)">
+            <span class="status-dot inactive" id="status-dot-gpu"></span>
+            <span class="text-xs text-secondary" id="status-text-gpu">GPU</span>
+          </div>
+
+          <!-- Power Mode Toggle (CPU-lokal ↔ GPU-remote via Tailscale) -->
+          <label class="toggle-switch" id="power-mode-toggle" title="Power Mode: CPU/Lokal ↔ GPU/Remote">
+            <input type="checkbox" id="power-mode-checkbox" aria-label="Power Mode umschalten">
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="text-xs text-tertiary" id="power-mode-label">Eco</span>
+
+          <!-- Benachrichtigungen -->
+          <button class="top-bar-icon-btn" id="notification-bell"
+                  aria-label="Benachrichtigungen" title="Benachrichtigungen">
+            🔔
+            <span class="badge hidden" id="notification-badge"></span>
+          </button>
+
+          <!-- Avatar / Nutzer-Menü -->
+          <div class="top-bar-avatar" id="user-avatar" title="Nutzer-Menü" role="button"
+               tabindex="0" aria-label="Nutzer-Menü öffnen">
+            H
+          </div>
+        </div>
+      </header>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           VIEW-PORT — Dynamischer Inhaltsbereich
+           Der Hash-Router (js/router.js) rendert hier die aktive View.
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div id="view-port" aria-live="polite">
+        <!-- Wird durch den Router dynamisch befüllt -->
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════
+       OVERLAYS: Toast-Container & Modal-Container (außerhalb der Shell)
+       ═══════════════════════════════════════════════════════════════════════ -->
+
+  <!-- Toast-Container für Benachrichtigungen (fixed, top-right) -->
+  <div class="toast-container" id="toast-container" aria-live="assertive" aria-atomic="true">
+    <!-- Toasts werden dynamisch durch api.js / views eingefügt -->
+  </div>
+
+  <!-- Modal-Container (wird bei Bedarf dynamisch gerendert) -->
+  <div id="modal-root"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════════
+       SCRIPTS: ES-Module für Routing, API-Kommunikation & Views
+       ═══════════════════════════════════════════════════════════════════════ -->
+
+  <!-- API-Client (Fetch-Wrapper für /api/*) -->
+  <script type="module" src="js/api.js"></script>
+
+  <!-- Hash-Router: Lädt die passende View in #view-port -->
+  <script type="module" src="js/router.js"></script>
+
+  <!-- Shell-Interaktivität: Sidebar-Collapse, Mobile-Menü, Power-Mode -->
+  <script type="module">
+    /**
+     * Shell-Interaktionslogik für das Imperium OS Dashboard.
+     * Verantwortlich für:
+     *  - Sidebar Ein-/Ausklappen (Desktop)
+     *  - Mobile Off-Canvas-Menü
+     *  - Power-Mode-Umschalter (CPU ↔ GPU)
+     *  - System-Status-Polling (Health-Check)
+     *  - Breadcrumb-Synchronisation
+     */
+
+    // ── DOM-Referenzen ──────────────────────────────────────────────────
+    const appShell = document.getElementById('app-shell');
+    const sidebar = document.getElementById('sidebar');
+    const collapseBtn = document.getElementById('sidebar-collapse-btn');
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    const powerModeCheckbox = document.getElementById('power-mode-checkbox');
+    const powerModeLabel = document.getElementById('power-mode-label');
+    const statusDotSystem = document.getElementById('status-dot-system');
+    const statusTextSystem = document.getElementById('status-text-system');
+    const statusDotGpu = document.getElementById('status-dot-gpu');
+    const statusTextGpu = document.getElementById('status-text-gpu');
+    const notificationBadge = document.getElementById('notification-badge');
+    const breadcrumbLabel = document.getElementById('breadcrumb-label');
+
+    // ── Initialisierungszustand aus localStorage ─────────────────────────
+    const SIDEBAR_KEY = 'imperium:sidebar:collapsed';
+    const POWER_MODE_KEY = 'imperium:power:mode';
+
+    // Sidebar-Zustand wiederherstellen
+    if (localStorage.getItem(SIDEBAR_KEY) === 'true') {
+      appShell.classList.add('sidebar-collapsed');
+      collapseBtn.innerHTML = '▶';
+    }
+
+    // Power-Mode wiederherstellen
+    const savedPowerMode = localStorage.getItem(POWER_MODE_KEY);
+    if (savedPowerMode === 'gpu') {
+      powerModeCheckbox.checked = true;
+      powerModeLabel.textContent = 'GPU';
+    }
+
+    // ── Sidebar Collapse (Desktop) ───────────────────────────────────────
+    collapseBtn.addEventListener('click', () => {
+      const isCollapsed = appShell.classList.toggle('sidebar-collapsed');
+      collapseBtn.innerHTML = isCollapsed ? '▶' : '◀';
+      localStorage.setItem(SIDEBAR_KEY, isCollapsed);
+    });
+
+    // ── Mobile Menu Toggle ──────────────────────────────────────────────
+    mobileMenuBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('mobile-open');
+    });
+
+    // Mobile-Menü schließen bei Klick außerhalb
+    document.addEventListener('click', (e) => {
+      if (sidebar.classList.contains('mobile-open') &&
+          !sidebar.contains(e.target) &&
+          !mobileMenuBtn.contains(e.target)) {
+        sidebar.classList.remove('mobile-open');
+      }
+    });
+
+    // Mobile-Menü schließen nach Navigation
+    sidebar.addEventListener('click', (e) => {
+      if (e.target.closest('.nav-item')) {
+        sidebar.classList.remove('mobile-open');
+      }
+    });
+
+    // ── Power Mode Toggle ───────────────────────────────────────────────
+    powerModeCheckbox.addEventListener('change', () => {
+      const isGpu = powerModeCheckbox.checked;
+      powerModeLabel.textContent = isGpu ? 'GPU' : 'Eco';
+      localStorage.setItem(POWER_MODE_KEY, isGpu ? 'gpu' : 'cpu');
+
+      // Power-Mode-Änderung an das Backend melden (nicht-blockierend)
+      import('./js/api.js').then(({ apiRequest }) => {
+        apiRequest('/system/power-mode', {
+          method: 'POST',
+          body: JSON.stringify({ mode: isGpu ? 'gpu' : 'cpu' })
+        }).catch(() => {
+          // Stumm ignorieren — Status-Polling aktualisiert die Anzeige
+        });
+      });
+    });
+
+    // ── System-Status-Polling (alle 30s) ────────────────────────────────
+    async function pollSystemStatus() {
+      try {
+        const { apiRequest } = await import('./js/api.js');
+        const health = await apiRequest('/health/detailed');
+
+        // Server-Status
+        const isHealthy = health.status === 'healthy';
+        statusDotSystem.className = `status-dot ${isHealthy ? 'healthy' : 'critical'}`;
+        statusTextSystem.textContent = isHealthy ? 'Online' : 'Offline';
+
+        // GPU-Worker-Status
+        const gpuStatus = health.gpu_worker || 'offline';
+        const gpuClass = gpuStatus === 'healthy' ? 'healthy' :
+                         gpuStatus === 'degraded' ? 'degraded' : 'inactive';
+        statusDotGpu.className = `status-dot ${gpuClass}`;
+        statusTextGpu.textContent = gpuStatus === 'healthy' ? 'GPU' :
+                                    gpuStatus === 'degraded' ? 'GPU ⚡' : 'GPU ✗';
+      } catch {
+        statusDotSystem.className = 'status-dot critical';
+        statusTextSystem.textContent = 'Offline';
+        statusDotGpu.className = 'status-dot inactive';
+        statusTextGpu.textContent = 'GPU ✗';
+      }
+    }
+
+    // Initialer Health-Check & Polling starten
+    pollSystemStatus();
+    setInterval(pollSystemStatus, 30_000);
+
+    // ── Breadcrumb-Synchronisation ───────────────────────────────────────
+    const ROUTE_LABELS = {
+      '#/dashboard': 'Dashboard',
+      '#/media': 'Medienbunker',
+      '#/music': 'Musikarchiv',
+      '#/files': 'Dateibunker',
+      '#/finance': 'Finanzen',
+      '#/health': 'Bio-Tracking',
+      '#/school': 'Ausbildung',
+      '#/auto': 'Automotive',
+      '#/code': 'Code Workbench',
+      '#/ai-studio': 'AI Studio'
+    };
+
+    window.addEventListener('hashchange', () => {
+      const label = ROUTE_LABELS[window.location.hash] || 'Dashboard';
+      breadcrumbLabel.textContent = label;
+      document.title = `Imperium OS — ${label}`;
+    });
+
+    // Initialer Breadcrumb
+    const initLabel = ROUTE_LABELS[window.location.hash] || 'Dashboard';
+    breadcrumbLabel.textContent = initLabel;
+  </script>
+
+</body>
+</html>

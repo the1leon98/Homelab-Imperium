@@ -1,0 +1,253 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Caddyfile — Reverse Proxy des Homelab-Imperiums
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Caddy (v2) dient als TLS-terminierender Reverse Proxy für:
+# 1. Statisches Frontend (/)            — SPA-Shell mit HTML/CSS/JS
+# 2. FastAPI Backend (/api/*)            — REST-API, WebSocket für KI-Streaming
+# 3. code-server Web-IDE (/ide/*)        — Browser-basierte VS Code-Instanz
+#
+# Netzwerk:
+# - Caddy ist der EINZIGE Container mit exponierten Ports (80, 443)
+# - Alle Backend-Dienste kommunizieren nur über das interne Docker-Netzwerk
+# - TLS wird von Caddy automatisch verwaltet (interne Zertifikate für Tailscale)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Globale Einstellungen
+# ═══════════════════════════════════════════════════════════════════════════════
+{
+    # Automatisches HTTPS für alle Sites
+    auto_https on
+
+    # Logging
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 100mb
+            roll_keep 5
+            roll_keep_for 720h  # 30 Tage
+        }
+        format json
+    }
+
+    # Graceful Shutdown
+    grace_period 10s
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Haupt-Site: Homelab-Imperium (Tailscale-MagicDNS)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+hp-server.tailscale-mesh.net {
+    # ──────────────────────────────────────────────────────────────────────
+    # TLS-Konfiguration
+    # ──────────────────────────────────────────────────────────────────────
+    #
+    # Für Tailscale-interne Nutzung werden interne Zertifikate verwendet.
+    # Falls die Domain öffentlich erreichbar sein soll, kann Let's Encrypt
+    # aktiviert werden (einfach die tls-Direktive auskommentieren).
+    tls internal {
+        # Nur TLS 1.3 erlauben (modern, sicher)
+        protocols tls1.3
+    }
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Globale Security-Header (gelten für ALLE Responses)
+    # ──────────────────────────────────────────────────────────────────────
+    header {
+        # Content Security Policy — DEFINITIV KEIN unsafe-inline in Produktion!
+        # frame-src 'self': Nur Iframes von der eigenen Domain erlaubt
+        # → code-server Iframe (/ide/*) ist erlaubt, da same-origin via Proxy
+        Content-Security-Policy "
+            default-src 'self';
+            script-src 'self' 'unsafe-inline';
+            style-src 'self' 'unsafe-inline';
+            img-src 'self' data: blob:;
+            media-src 'self' blob:;
+            frame-src 'self';
+            connect-src 'self' blob:;
+            font-src 'self';
+            object-src 'none';
+            base-uri 'self';
+            form-action 'self';
+            worker-src 'self' blob:;
+        "
+
+        # HTTP Strict Transport Security — 2 Jahre, inkl. Subdomains
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+
+        # Anti-Clickjacking: Keine Einbettung in fremde Iframes
+        X-Frame-Options "SAMEORIGIN"
+
+        # MIME-Type-Sniffing verhindern
+        X-Content-Type-Options "nosniff"
+
+        # Cross-Site Scripting Filter (Legacy-Browser)
+        X-XSS-Protection "1; mode=block"
+
+        # Referrer-Policy: URL nicht an externe Seiten senden
+        Referrer-Policy "strict-origin-when-cross-origin"
+
+        # Browser-Features einschränken (Permissions-Policy)
+        Permissions-Policy "
+            accelerometer=(),
+            ambient-light-sensor=(),
+            autoplay=(self),
+            camera=(),
+            display-capture=(),
+            document-domain=(),
+            encrypted-media=(self),
+            fullscreen=(self),
+            geolocation=(),
+            gyroscope=(),
+            magnetometer=(),
+            microphone=(),
+            midi=(),
+            payment=(),
+            picture-in-picture=(),
+            screen-wake-lock=(),
+            sync-xhr=(self),
+            usb=(),
+            web-share=(),
+            xr-spatial-tracking=()
+        "
+
+        # Server-Signatur unterdrücken (Information Disclosure verhindern)
+        -Server
+        -X-Powered-By
+
+        # Cross-Origin-Embedder-Policy (für SharedArrayBuffer etc.)
+        Cross-Origin-Embedder-Policy "unsafe-none"
+
+        # Cross-Origin-Opener-Policy
+        Cross-Origin-Opener-Policy "same-origin"
+    }
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Rate Limiting (DoS-Schutz)
+    # ──────────────────────────────────────────────────────────────────────
+    rate_limit {
+        zone dynamic {
+            key {remote_host}
+            events 100
+            window 1m
+        }
+    }
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Request-Größenbegrenzung
+    # ──────────────────────────────────────────────────────────────────────
+    request_body {
+        max_size 500MB  # Für große Datei-Uploads (Medien, PDFs)
+    }
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Route 1: Statisches Frontend-Hosting (SPA-Shell)
+    # ──────────────────────────────────────────────────────────────────────
+    #
+    # Alle Requests an / werden aus dem Frontend-Verzeichnis bedient.
+    # index.html wird als Fallback für SPA-Client-Routing verwendet.
+    root * /usr/share/caddy/frontend
+
+    # SPA-Fallback: Alle Pfade ohne Dateiendung → index.html
+    # (ermöglicht Client-seitiges Hash-Routing: /#/media, /#/files, …)
+    try_files {path} /index.html
+
+    file_server {
+        # Versteckte Dateien (.env, .git, …) nicht ausliefern
+        hide .*
+    }
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Route 2: FastAPI Backend-API (/api/*)
+    # ──────────────────────────────────────────────────────────────────────
+    handle /api/* {
+        reverse_proxy fastapi_app:8000 {
+            # Header-Weiterleitung an das Backend
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-Host {host}
+
+            # Timeout für lange KI-Operationen (Generate kann bis zu 120s dauern)
+            transport http {
+                read_timeout 300s
+                write_timeout 300s
+                dial_timeout 5s
+            }
+
+            # Health-Check für Upstream
+            health_uri /api/health
+            health_interval 30s
+            health_timeout 5s
+
+            # WebSocket-Unterstützung (für SSE-Streaming der KI-Antworten)
+            @websocket {
+                header Connection *Upgrade*
+                header Upgrade websocket
+            }
+        }
+
+        # SSE-Streaming: Kein Buffering durch Caddy
+        @sse {
+            path /api/ai/chat/stream
+        }
+        header @sse {
+            X-Accel-Buffering "no"
+            Cache-Control "no-cache"
+            Connection "keep-alive"
+        }
+    }
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Route 3: code-server Web-IDE (/ide/*)
+    # ──────────────────────────────────────────────────────────────────────
+    #
+    # ⚠ DIES IST DIE EINZIGE ERLAUBTE IFRAME-EINBETTUNG IM GESAMTEN SYSTEM.
+    # Das CSP ``frame-src 'self'`` erlaubt dies, da /ide/* als same-origin
+    # via Caddy-Proxy behandelt wird.
+    handle /ide/* {
+        reverse_proxy code_server:8080 {
+            # Header-Weiterleitung
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+
+            # WebSocket ist für code-server ESSENTIELL
+            # (VS Code kommuniziert permanent über WebSocket)
+            header_up Connection {>Connection}
+            header_up Upgrade {>Upgrade}
+
+            transport http {
+                read_timeout 0     # Kein Timeout für WebSocket
+                write_timeout 0    # Kein Timeout für WebSocket
+                dial_timeout 10s
+            }
+
+            # Health-Check
+            health_uri /healthz
+            health_interval 30s
+            health_timeout 10s
+        }
+    }
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Fallback: 404 für alle anderen Pfade
+    # ──────────────────────────────────────────────────────────────────────
+    handle {
+        respond "404 — Nicht gefunden" 404
+    }
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Logging (Request-spezifisch)
+    # ──────────────────────────────────────────────────────────────────────
+    log {
+        output file /var/log/caddy/hp-server.log {
+            roll_size 50mb
+            roll_keep 3
+            roll_keep_for 2160h  # 90 Tage
+        }
+        format json
+    }
+}

@@ -1,0 +1,35 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Homelab-Imperium — Python-Abhängigkeiten
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Installation (Python 3.14+):
+#   python3 -m venv .venv
+#   source .venv/bin/activate
+#   pip install -r requirements.txt
+
+# ── Web-Framework ──────────────────────────────────────────────────────────
+fastapi>=0.110
+uvicorn[standard]>=0.28
+pydantic>=2.10
+pydantic-settings>=2.2
+
+# ── Datenbank ──────────────────────────────────────────────────────────────
+sqlalchemy>=2.0
+asyncpg>=0.30
+alembic>=1.13
+chromadb>=0.5
+
+# ── Async HTTP & WebSocket ─────────────────────────────────────────────────
+httpx>=0.27
+websockets>=12.0
+aiofiles>=24.0
+
+# ── Datei- & Medienverarbeitung ────────────────────────────────────────────
+psutil>=5.9
+mutagen>=1.47
+python-multipart>=0.0.9
+
+# ── Konfiguration & RAG ────────────────────────────────────────────────────
+PyYAML>=6.0
+pypdf>=4.0
+

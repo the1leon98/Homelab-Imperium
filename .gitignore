@@ -1,0 +1,33 @@
+# System & Environment
+.env
+.env.local
+.venv/
+venv/
+ENV/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Datenbanken & Persistenz
+*.db
+*.sqlite3
+/mnt/data/
+
+# OS-spezifisch
+.DS_Store
+Thumbs.db
+
+# Versteckte Betriebssystem-Dateien des Mac ignorieren
+.DS_Store
+**/._*
+
+# Private Passwörter und Umgebungsvariablen ignorieren
+.env
+
+# Lokales virtuelles Python-Environment ignorieren
+.venv/
+__pycache__/
+*.pyc
