@@ -37,19 +37,19 @@ Das Imperium bündelt elf spezialisierte Anwendungsbereiche in einer einzigen, k
 
 Das System basiert auf dem unumstößlichen Prinzip der **Schnittstellen-Isolation**:
 ┌──────────────────────────────────────────────────────────┐
-│ FRONTEND (Cyber-Dark UI) │
-│ Vanilla HTML5 + CSS Tokens + Hash-Router │
+│                 FRONTEND (Cyber-Dark UI)                 │
+│         Vanilla HTML5 + CSS Tokens + Hash-Router         │
 └────────────────────────────┬─────────────────────────────┘
-│ (Sicherer JSON/SSE Tunnel über /api/*)
-▼
+                             │ (Sicherer JSON/SSE Tunnel über /api/*)
+                             ▼
 ┌──────────────────────────────────────────────────────────┐
-│ BACKEND (FastAPI Engine) │
-│ Universal-Übersetzer & Inferenz-Router │
+│                 BACKEND (FastAPI Engine)                 │
+│          Universal-Übersetzer & Inferenz-Router          │
 └──────┬──────────────┬──────────────┬──────────────┬──────┘
-│ │ │ │
-▼ ▼ ▼ ▼
-PostgreSQL ChromaDB Ollama Jellyfin
-(Struktur) (RAG-Vektoren) (Smart LLM) (Streaming)
+       │              │              │              │
+       ▼              ▼              ▼              ▼
+  PostgreSQL      ChromaDB        Ollama        Jellyfin
+  (Struktur)    (RAG-Vector)    (Smart LLM)    (Streaming)
 
 ### 🔒 Die Goldenen Sicherheits-Regeln:
 1.  **Das Iframe-Verbot**: Das Frontend kommuniziert ausschließlich mit dem FastAPI-Backend über `/api`. Direkte Netzwerkzugriffe auf Jellyfin, ChromaDB, Ollama oder das Dateisystem sind strikt untersagt. Die einzige Ausnahme bildet der über Caddy-Sicherheits-Header geschützte code-server.
@@ -61,34 +61,33 @@ PostgreSQL ChromaDB Ollama Jellyfin
 
 ## 📂 4. Repository-Struktur
 .
-├── Caddyfile # Reverse Proxy Konfiguration & SSL-Absicherung
-├── docker-compose.yml # Container-Stack-Deklaration (Postgres, Chroma, Jellyfin)
-├── requirements.txt # Python-Abhängigkeiten (FastAPI, SQLAlchemy, psutil)
-├── .env.example # Vorlage für vertrauliche Umgebungsvariablen
+├── Caddyfile                  # Reverse Proxy Konfiguration & SSL-Absicherung
+├── docker-compose.yml         # Container-Stack-Deklaration (Postgres, Chroma, Jellyfin)
+├── requirements.txt           # Python-Abhängigkeiten (FastAPI, SQLAlchemy, psutil)
+├── .env.example               # Vorlage für vertrauliche Umgebungsvariablen
 ├── config/
-│ └── agents/ # YAML-Steckbriefe und Prompts der 4 AI-Agenten
-│ ├── it_tutor.yaml
-│ ├── auto_engineer.yaml
-│ ├── medical_health.yaml
-│ └── brainstorm_agent.yaml
+│   └── agents/                # YAML-Steckbriefe und Prompts der 4 AI-Agenten
+│       ├── it_tutor.yaml
+│       ├── auto_engineer.yaml
+│       ├── medical_health.yaml
+│       └── brainstorm_agent.yaml
 ├── docs/
-│ ├── architektur.md # Ausführliche Systemarchitektur-Pläne
-│ └── security_hardening.md # Detaillierter Leitfaden zur Server-Härtung
+│   ├── architektur.md         # Ausführliche Systemarchitektur-Pläne
+│   └── security_hardening.md  # Detaillierter Leitfaden zur Server-Härtung
 ├── backend/
-│ └── app/
-│ ├── main.py # FastAPI-Anwendungseinstieg & CORS-Sperren
-│ ├── config.py # Typisierte Einstellungsvalidierung via Pydantic
-│ ├── database.py # Verbindungspooling für PostgreSQL
-│ ├── models.py # Relationale Datenbankmodelle (SQLAlchemy)
-│ ├── schemas.py # Datenübertragungsobjekte (Pydantic-DTOs)
-│ ├── routers/ # HTTP-Schnittstellen (Echtzeit-Diagnose, AI, Files)
-│ └── services/ # Business-Logik & Drittsystem-Client-Treiber
+│   └── app/
+│       ├── main.py            # FastAPI-Anwendungseinstieg & CORS-Sperren
+│       ├── config.py          # Typisierte Einstellungsvalidierung via Pydantic
+│       ├── database.py        # Verbindungspooling für PostgreSQL
+│       ├── models.py          # Relationale Datenbankmodelle (SQLAlchemy)
+│       ├── schemas.py         # Datenübertragungsobjekte (Pydantic-DTOs)
+│       ├── routers/           # HTTP-Schnittstellen (Echtzeit-Diagnose, AI, Files)
+│       └── services/          # Business-Logik & Drittsystem-Client-Treiber
 └── frontend/
-└── static/ # Single-Page-Applikation Assets
-├── index.html # Zentrales SPA HTML5-Dokument
-├── styles/ # CSS-Themes (tokens.css, main.css)
-└── js/ # Native ES-Module (api.js, router.js, views/*)
-
+    └── static/                # Single-Page-Applikation Assets
+        ├── index.html         # Zentrales SPA HTML5-Dokument
+        ├── styles/            # CSS-Themes (tokens.css, main.css)
+        └── js/                # Native ES-Module (api.js, router.js, views/*)
 ---
 
 ## 📅 5. Deployment & Produktions-Roadmap
